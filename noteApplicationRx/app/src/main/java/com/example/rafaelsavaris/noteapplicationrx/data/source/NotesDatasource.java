@@ -3,6 +3,9 @@ package com.example.rafaelsavaris.noteapplicationrx.data.source;
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 
 import java.util.List;
+import java.util.Optional;
+
+import io.reactivex.Flowable;
 
 /**
  * Created by rafael.savaris on 18/10/2017.
@@ -10,25 +13,9 @@ import java.util.List;
 
 public interface NotesDatasource {
 
-    interface LoadNotesCallBack{
+    Flowable<List<Note>> getNotes();
 
-        void onNotesLoaded(List<Note> notes);
-
-        void onDataNotAvailable();
-
-    }
-
-    interface GetNoteCallBack{
-
-        void onNoteLoaded(Note note);
-
-        void onDataNotAvailable();
-
-    }
-
-    void getNotes(LoadNotesCallBack loadNotesCallBack);
-
-    void getNote(String noteId, GetNoteCallBack getNoteCallBack);
+    Flowable<Optional<Note>> getNote(String noteId);
 
     void deleteAllNotes();
 

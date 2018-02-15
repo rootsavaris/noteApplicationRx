@@ -41,7 +41,7 @@ public class NotesActivity extends AppCompatActivity {
 
         }
 
-        notesPresenter = new NotesPresenter(Injection.providesNotesRepository(this), notesFragment);
+        notesPresenter = new NotesPresenter(Injection.providesNotesRepository(this), notesFragment, Injection.provideShedulerProvider());
 
         if (savedInstanceState != null){
 

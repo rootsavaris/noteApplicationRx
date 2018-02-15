@@ -74,7 +74,7 @@ public class DetailNoteFragment extends Fragment implements DetailNoteContract.V
     @Override
     public void onResume() {
         super.onResume();
-        mPresenter.start();
+        mPresenter.subscribe();
     }
 
     @Override

@@ -42,7 +42,7 @@ public class AddEditNoteFragment extends Fragment implements AddEditNoteContract
     @Override
     public void onResume() {
         super.onResume();
-        mAddEditNotePresenter.start();
+        mAddEditNotePresenter.subscribe();
     }
 
     @Override

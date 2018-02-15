@@ -48,7 +48,8 @@ public class DetailNoteActivity extends AppCompatActivity {
         new DetailNotePresenter(
                 noteId,
                 Injection.providesNotesRepository(getApplicationContext()),
-                detailNoteFragment);
+                detailNoteFragment,
+                Injection.provideShedulerProvider());
 
     }
 

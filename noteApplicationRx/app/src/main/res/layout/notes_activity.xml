@@ -5,7 +5,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        tools:context=".com.example.rafaelsavaris.noteapplicationmvp.notes.list.NotesActivity"
+        tools:context="com.example.rafaelsavaris.noteapplicationrx.notes.list.NotesActivity"
         >
 
         <android.support.design.widget.AppBarLayout

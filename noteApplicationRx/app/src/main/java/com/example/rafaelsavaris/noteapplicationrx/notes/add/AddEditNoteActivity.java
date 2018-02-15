@@ -63,7 +63,8 @@ public class AddEditNoteActivity extends AppCompatActivity {
                 noteId,
                 Injection.providesNotesRepository(getApplicationContext()),
                 addEditNoteFragment,
-                shouldLoadDataFromRepo);
+                shouldLoadDataFromRepo,
+                Injection.provideShedulerProvider());
 
     }
 

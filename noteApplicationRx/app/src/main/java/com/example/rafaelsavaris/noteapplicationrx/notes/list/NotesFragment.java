@@ -135,8 +135,15 @@ public class NotesFragment extends Fragment implements NotesContract.View {
     @Override
     public void onResume() {
         super.onResume();
-        mPresenter.start();
+        mPresenter.subscribe();
     }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mPresenter.unsubscribe();
+    }
+
 
     @Override
     public void setPresenter(NotesContract.Presenter mPresenter){

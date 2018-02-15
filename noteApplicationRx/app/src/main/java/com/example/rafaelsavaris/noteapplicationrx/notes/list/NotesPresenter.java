@@ -7,9 +7,14 @@ import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesRepository;
 import com.example.rafaelsavaris.noteapplicationrx.notes.add.AddEditNoteActivity;
+import com.example.rafaelsavaris.noteapplicationrx.utils.scheduler.BaseScheduler;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import io.reactivex.Flowable;
+import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.disposables.Disposable;
 
 /**
  * Created by rafael.savaris on 18/10/2017.
@@ -21,13 +26,21 @@ public class NotesPresenter implements NotesContract.Presenter {
 
     private final NotesContract.View mView;
 
+    private final BaseScheduler mBaseScheduler;
+
     private NotesFilterType mFilterType = NotesFilterType.ALL_NOTES;
 
     private boolean firstLoad = true;
 
-    public NotesPresenter(NotesRepository mRepository, NotesContract.View mView) {
+    private CompositeDisposable mCompositeDisposable;
+
+    public NotesPresenter(NotesRepository mRepository, NotesContract.View mView, BaseScheduler baseScheduler) {
         this.mRepository = mRepository;
         this.mView = mView;
+        this.mBaseScheduler = baseScheduler;
+
+        mCompositeDisposable = new CompositeDisposable();
+
         this.mView.setPresenter(this);
     }
 
@@ -46,11 +59,6 @@ public class NotesPresenter implements NotesContract.Presenter {
             mView.showSuccessfullySavedMessage();
         }
 
-    }
-
-    @Override
-    public void start() {
-        loadNotes(false);
     }
 
     @Override
@@ -103,55 +111,38 @@ public class NotesPresenter implements NotesContract.Presenter {
             mRepository.refreshNotes();
         }
 
-        mRepository.getNotes(new NotesDatasource.LoadNotesCallBack() {
+        mCompositeDisposable.clear();
 
-            @Override
-            public void onNotesLoaded(List<Note> notes) {
-
-                List<Note> notesToShow = new ArrayList<>();
-
-                for (Note note : notes){
+        Disposable disposable = mRepository.getNotes()
+                .flatMap(Flowable::fromIterable)
+                .filter(note -> {
 
                     switch (mFilterType){
 
                         case MARKED_NOTES:
-
-                            if(note.isMarked()){
-                                notesToShow.add(note);
-                            }
-
-                            break;
-
-                         default:
-                             notesToShow.add(note);
+                            return note.isMarked();
+                        default:
+                            return true;
                     }
 
-                }
+                })
+                .toList()
+                .subscribeOn(mBaseScheduler.io())
+                .observeOn(mBaseScheduler.ui())
+                .subscribe(
 
-                if (!mView.isActive()){
-                    return;
-                }
+                    notes -> {
 
-                if (showLoading){
-                    mView.setLoadingIndicator(false);
-                }
+                        processNotes(notes);
 
-                processNotes(notesToShow);
+                        mView.setLoadingIndicator(false);
 
-            }
+                    },
 
-            @Override
-            public void onDataNotAvailable() {
+                    throwable -> mView.showLoadingNotesError()
+                );
 
-                if (!mView.isActive()){
-                    return;
-                }
-
-                mView.showLoadingNotesError();
-
-            }
-
-        });
+                mCompositeDisposable.add(disposable);
 
     }
 
@@ -197,4 +188,13 @@ public class NotesPresenter implements NotesContract.Presenter {
 
     }
 
+    @Override
+    public void subscribe() {
+        loadNotes(false);
+    }
+
+    @Override
+    public void unsubscribe() {
+        mCompositeDisposable.clear();
+    }
 }

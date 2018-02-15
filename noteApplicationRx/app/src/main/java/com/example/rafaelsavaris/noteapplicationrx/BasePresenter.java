@@ -6,6 +6,8 @@ package com.example.rafaelsavaris.noteapplicationrx;
 
 public interface BasePresenter {
 
-    void start();
+    void subscribe();
+
+    void unsubscribe();
 
 }

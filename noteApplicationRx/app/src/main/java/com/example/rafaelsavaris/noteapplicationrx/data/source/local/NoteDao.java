@@ -9,6 +9,9 @@ import android.arch.persistence.room.Update;
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 
 import java.util.List;
+import java.util.Optional;
+
+import io.reactivex.Flowable;
 
 /**
  * Created by rafael.savaris on 04/01/2018.
@@ -18,10 +21,10 @@ import java.util.List;
 public interface NoteDao {
 
     @Query("SELECT * from notes")
-    List<Note> getNotes();
+    Flowable<List<Note>> getNotes();
 
     @Query("SELECT * from notes WHERE id = :noteId")
-    Note getNoteById(String noteId);
+    Flowable<Optional<Note>> getNoteById(String noteId);
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertNote(Note note);

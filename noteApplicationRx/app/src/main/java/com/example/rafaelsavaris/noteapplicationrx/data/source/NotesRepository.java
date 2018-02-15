@@ -1,13 +1,21 @@
 package com.example.rafaelsavaris.noteapplicationrx.data.source;
 
 
+import android.annotation.SuppressLint;
+
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
+
+import org.reactivestreams.Publisher;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
+import io.reactivex.Flowable;
+import io.reactivex.functions.Function;
 
 /**
  * Created by rafael.savaris on 18/10/2017.
@@ -46,87 +54,59 @@ public class NotesRepository implements NotesDatasource {
 
 
     @Override
-    public void getNotes(final LoadNotesCallBack loadNotesCallBack) {
+    public Flowable<List<Note>> getNotes() {
 
         if (mCachedNotes != null && !cacheIsDirty) {
-
-            loadNotesCallBack.onNotesLoaded(new ArrayList<>(mCachedNotes.values()));
-            return;
-
+            return Flowable.fromIterable(mCachedNotes.values()).toList().toFlowable();
+        } else if (mCachedNotes == null){
+            mCachedNotes = new LinkedHashMap<>();
         }
 
-        if (cacheIsDirty) {
-            getNotesFromRemoteDataSource(loadNotesCallBack);
+        Flowable<List<Note>> remoteNotes = getNotesFromRemoteDataSource();
+
+        if (cacheIsDirty){
+            return remoteNotes;
         } else {
 
-            mNotesLocal.getNotes(new LoadNotesCallBack() {
-                @Override
-                public void onNotesLoaded(List<Note> notes) {
-                    refreshCache(notes);
-                    loadNotesCallBack.onNotesLoaded(notes);
-                }
+            Flowable<List<Note>> localNotes = getNotesFromLocalDataSource();
 
-                @Override
-                public void onDataNotAvailable() {
-                    getNotesFromRemoteDataSource(loadNotesCallBack);
-                }
-            });
+            return Flowable.concat(localNotes, remoteNotes)
+                    .filter(notes -> !notes.isEmpty())
+                    .firstOrError()
+                    .toFlowable();
 
         }
 
     }
 
+    @SuppressLint("NewApi")
     @Override
-    public void getNote(final String noteId, final GetNoteCallBack getNoteCallBack) {
+    public Flowable<Optional<Note>> getNote(final String noteId) {
 
         Note cachedNote = getNoteWithId(noteId);
 
         if (cachedNote != null){
-            getNoteCallBack.onNoteLoaded(cachedNote);
-            return;
+            return Flowable.just(Optional.of(cachedNote));
         }
 
-        mNotesLocal.getNote(noteId, new GetNoteCallBack() {
+        Flowable<Optional<Note>> localNote = getNoteWithIdFromLocalRepository(noteId);
 
-            @Override
-            public void onNoteLoaded(Note note) {
+        Flowable<Optional<Note>> remoteNote = mNotesRemote.getNote(noteId)
+                .doOnNext(note -> {
 
-                if (mCachedNotes == null){
-                    mCachedNotes = new LinkedHashMap<>();
-                }
+                    if (note.isPresent()){
 
-                mCachedNotes.put(note.getId(), note);
+                        Note note1 = note.get();
 
-                getNoteCallBack.onNoteLoaded(note);
+                        mNotesLocal.saveNote(note1);
 
-            }
-
-            @Override
-            public void onDataNotAvailable() {
-
-                mNotesRemote.getNote(noteId, new GetNoteCallBack() {
-
-                    @Override
-                    public void onNoteLoaded(Note note) {
-
-                        if (mCachedNotes == null){
-                            mCachedNotes = new LinkedHashMap<>();
-                        }
-
-                        mCachedNotes.put(note.getId(), note);
-
-                        getNoteCallBack.onNoteLoaded(note);
+                        mCachedNotes.put(note1.getId(), note1);
 
                     }
 
-                    @Override
-                    public void onDataNotAvailable() {
-                        getNoteCallBack.onDataNotAvailable();
-                    }
                 });
 
-            }
-        });
+        return Flowable.concat(localNote, remoteNote).firstElement().toFlowable();
 
     }
 
@@ -240,24 +220,30 @@ public class NotesRepository implements NotesDatasource {
 
     }
 
-    private void getNotesFromRemoteDataSource(final LoadNotesCallBack loadNotesCallBack) {
+    private Flowable<List<Note>> getNotesFromRemoteDataSource() {
 
-        mNotesRemote.getNotes(new LoadNotesCallBack() {
+        return mNotesRemote.getNotes()
+                .flatMap(notes -> Flowable.fromIterable(notes).doOnNext(note -> {
 
-            @Override
-            public void onNotesLoaded(List<Note> notes) {
-                refreshCache(notes);
-                refreshLocalDataSource(notes);
-                loadNotesCallBack.onNotesLoaded(new ArrayList<Note>(mCachedNotes.values()));
-            }
+            mNotesLocal.saveNote(note);
 
-            @Override
-            public void onDataNotAvailable() {
-                loadNotesCallBack.onDataNotAvailable();
-            }
-        });
+            mCachedNotes.put(note.getId(), note);
+
+        }).toList().toFlowable()).doOnComplete(() -> cacheIsDirty = false);
 
     }
+
+    private Flowable<List<Note>> getNotesFromLocalDataSource() {
+
+        return mNotesLocal.getNotes()
+                .flatMap(notes -> Flowable.fromIterable(notes).doOnNext(note -> {
+
+                    mCachedNotes.put(note.getId(), note);
+
+                }).toList().toFlowable());
+
+    }
+
 
     private void refreshCache(List<Note> notes) {
 
@@ -292,6 +278,22 @@ public class NotesRepository implements NotesDatasource {
         } else {
             return mCachedNotes.get(id);
         }
+
+    }
+
+    @SuppressLint("NewApi")
+    Flowable<Optional<Note>> getNoteWithIdFromLocalRepository(String noteId){
+
+        return mNotesLocal.getNote(noteId)
+                .doOnNext(note -> {
+
+                    if (note.isPresent()){
+                        mCachedNotes.put(noteId, note.get());
+                    }
+
+                })
+                .firstElement().toFlowable();
+
 
     }
 

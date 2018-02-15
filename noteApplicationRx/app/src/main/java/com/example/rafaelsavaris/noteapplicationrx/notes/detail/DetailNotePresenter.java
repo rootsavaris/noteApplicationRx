@@ -1,9 +1,15 @@
 package com.example.rafaelsavaris.noteapplicationrx.notes.detail;
 
+import android.annotation.SuppressLint;
+
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesRepository;
+import com.example.rafaelsavaris.noteapplicationrx.utils.scheduler.BaseScheduler;
 import com.google.common.base.Strings;
+
+import io.reactivex.Flowable;
+import io.reactivex.disposables.CompositeDisposable;
 
 /**
  * Created by rafael.savaris on 02/01/2018.
@@ -17,54 +23,17 @@ public class DetailNotePresenter implements DetailNoteContract.Presenter {
 
     private final DetailNoteContract.View mView;
 
-    public DetailNotePresenter(String noteId, NotesRepository notesRepository, DetailNoteContract.View view) {
+    private BaseScheduler mBaseScheduler;
+
+    private CompositeDisposable mCompositeDisposable;
+
+    public DetailNotePresenter(String noteId, NotesRepository notesRepository, DetailNoteContract.View view, BaseScheduler baseScheduler) {
         mNoteId = noteId;
         mNotesRepository = notesRepository;
         mView = view;
-
+        mBaseScheduler = baseScheduler;
+        mCompositeDisposable = new CompositeDisposable();
         mView.setPresenter(this);
-    }
-
-    @Override
-    public void start() {
-
-        if (Strings.isNullOrEmpty(mNoteId)){
-            mView.showMissingNote();
-            return;
-        }
-
-        mView.setLoadingIndicator(true);
-        mNotesRepository.getNote(mNoteId, new NotesDatasource.GetNoteCallBack() {
-
-            @Override
-            public void onNoteLoaded(Note note) {
-
-                if (!mView.isActive()){
-                    return;
-                }
-
-                mView.setLoadingIndicator(false);
-
-                if (note == null){
-                    mView.showMissingNote();
-                } else {
-                    showNote(note);
-                }
-
-            }
-
-            @Override
-            public void onDataNotAvailable() {
-
-                if (!mView.isActive()){
-                    return;
-                }
-
-                mView.showMissingNote();
-
-            }
-        });
-
     }
 
     private void showNote(Note note) {
@@ -143,4 +112,41 @@ public class DetailNotePresenter implements DetailNoteContract.Presenter {
 
     }
 
+    @SuppressLint("NewApi")
+    @Override
+    public void subscribe() {
+
+        if (Strings.isNullOrEmpty(mNoteId)){
+            mView.showMissingNote();
+            return;
+        }
+
+        mView.setLoadingIndicator(true);
+
+        /*
+        mCompositeDisposable.add(mNotesRepository
+                .getNote(mNoteId)
+                .subscribeOn(mBaseScheduler.computation())
+                .observeOn(mBaseScheduler.ui())
+                .subscribe(
+
+                        this::showNote,
+
+                        throwable -> {
+
+                        },
+
+                        () -> mView.setLoadingIndicator(false)
+
+                        ));
+
+                        */
+
+
+    }
+
+    @Override
+    public void unsubscribe() {
+
+    }
 }

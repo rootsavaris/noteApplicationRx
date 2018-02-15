@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">NoteApplicationMVP</string>
+    <string name="app_name">NoteApplicationRX</string>
     <string name="add_note">New Note</string>
     <string name="edit_note">Edit Note</string>
-    <string name="navigation_view_header_title">Note App Simple MVP</string>
+    <string name="navigation_view_header_title">Note App Simple RX</string>
     <string name="no_notes_all">You have no Notes!</string>
     <string name="no_notes_add">Add a Note item +</string>
     <string name="no_notes_marked">You have no marked notes!</string>

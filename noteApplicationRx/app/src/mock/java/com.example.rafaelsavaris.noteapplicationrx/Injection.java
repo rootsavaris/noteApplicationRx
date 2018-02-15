@@ -5,10 +5,8 @@ import android.content.Context;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesRepository;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.local.NoteDatabase;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.local.NotesLocalDataSource;
-import com.example.rafaelsavaris.noteapplicationrx.data.source.remote.NotesRemoteDataSource;
+import com.example.rafaelsavaris.noteapplicationrx.data.source.remote.MockRemoteDataSource;
 import com.example.rafaelsavaris.noteapplicationrx.utils.AppExecutors;
-import com.example.rafaelsavaris.noteapplicationrx.utils.scheduler.BaseScheduler;
-import com.example.rafaelsavaris.noteapplicationrx.utils.scheduler.SchedulerProvider;
 
 
 /**
@@ -21,12 +19,8 @@ public class Injection {
 
         NoteDatabase database = NoteDatabase.getInstance(context);
 
-        return NotesRepository.getInstance(NotesRemoteDataSource.getInstance(), NotesLocalDataSource.getInstance(new AppExecutors(), database.noteDao()));
+        return NotesRepository.getInstance(MockRemoteDataSource.getInstance(), NotesLocalDataSource.getInstance(new AppExecutors(), database.noteDao()));
 
-    }
-
-    public static BaseScheduler provideShedulerProvider(){
-        return SchedulerProvider.getInstance();
     }
 
 }

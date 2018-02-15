@@ -6,6 +6,9 @@ import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
 import com.example.rafaelsavaris.noteapplicationrx.utils.AppExecutors;
 
 import java.util.List;
+import java.util.Optional;
+
+import io.reactivex.Flowable;
 
 /**
  * Created by rafael.savaris on 18/10/2017.
@@ -47,60 +50,13 @@ public class NotesLocalDataSource implements NotesDatasource {
     }
 
     @Override
-    public void getNotes(final LoadNotesCallBack loadNotesCallBack) {
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-
-                final List<Note> notes = mNoteDao.getNotes();
-
-                mAppExecutors.getMainThread().execute(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        if (notes.isEmpty()){
-                            loadNotesCallBack.onDataNotAvailable();
-                        } else{
-                            loadNotesCallBack.onNotesLoaded(notes);
-                        }
-
-                    }
-                });
-            }
-        };
-
-        mAppExecutors.getDiskIO().execute(runnable);
-
+    public Flowable<List<Note>> getNotes() {
+        return mNoteDao.getNotes();
     }
 
     @Override
-    public void getNote(final String noteId, final GetNoteCallBack getNoteCallBack) {
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-
-                final Note note = mNoteDao.getNoteById(noteId);
-
-                mAppExecutors.getMainThread().execute(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        if (note != null){
-                            getNoteCallBack.onNoteLoaded(note);
-                        } else {
-                            getNoteCallBack.onDataNotAvailable();
-                        }
-
-                    }
-                });
-
-            }
-        };
-
-        mAppExecutors.getDiskIO().execute(runnable);
-
+    public Flowable<Optional<Note>> getNote(final String noteId) {
+        return mNoteDao.getNoteById(noteId);
     }
 
     @Override

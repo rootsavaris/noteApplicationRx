@@ -1,7 +1,7 @@
 package com.example.rafaelsavaris.noteapplicationrx.data.source.remote;
 
-import android.annotation.SuppressLint;
 import android.os.Handler;
+import android.support.annotation.VisibleForTesting;
 
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
@@ -11,8 +11,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Flowable;
 
@@ -20,24 +18,16 @@ import io.reactivex.Flowable;
  * Created by rafael.savaris on 18/10/2017.
  */
 
-public class NotesRemoteDataSource implements NotesDatasource {
+public class MockRemoteDataSource implements NotesDatasource {
 
-    private static NotesRemoteDataSource instance;
+    private static MockRemoteDataSource instance;
 
-    private static final int TIME_SERVICE = 5000;
+    private final static Map<String, Note> NOTES_DATA = new LinkedHashMap<>();
 
-    private final static Map<String, Note> NOTES_DATA;
-
-    static {
-        NOTES_DATA = new LinkedHashMap<>(2);
-        addNote("Note 1", "This is the Note1");
-        addNote("Note 2", "This is the Note2");
-    }
-
-    public static NotesRemoteDataSource getInstance(){
+    public static MockRemoteDataSource getInstance(){
 
         if (instance == null){
-            instance = new NotesRemoteDataSource();
+            instance = new MockRemoteDataSource();
         }
 
         return instance;
@@ -51,24 +41,16 @@ public class NotesRemoteDataSource implements NotesDatasource {
 
     @Override
     public Flowable<List<Note>> getNotes() {
-        return Flowable
-                .fromIterable(NOTES_DATA.values())
-                .delay(TIME_SERVICE, TimeUnit.MILLISECONDS)
-                .toList()
-                .toFlowable();
+        //loadNotesCallBack.onNotesLoaded(Lists.newArrayList(NOTES_DATA.values()));
+        return null;
     }
 
-    @SuppressLint("NewApi")
     @Override
-    public Flowable<Optional<Note>> getNote(String noteId) {
+    public void getNote(String noteId, final GetNoteCallBack getNoteCallBack) {
 
         final Note note = NOTES_DATA.get(noteId);
 
-        if (note != null){
-            return Flowable.just(Optional.of(note)).delay(TIME_SERVICE, TimeUnit.MILLISECONDS);
-        } else {
-            return Flowable.empty();
-        }
+        getNoteCallBack.onNoteLoaded(note);
 
     }
 
@@ -134,6 +116,13 @@ public class NotesRemoteDataSource implements NotesDatasource {
 
         NOTES_DATA.remove(noteId);
 
+    }
+
+    @VisibleForTesting
+    public void addNotes(Note... notes){
+        for (Note note : notes){
+            NOTES_DATA.put(note.getId(), note);
+        }
     }
 
 }

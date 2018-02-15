@@ -1,13 +1,19 @@
 package com.example.rafaelsavaris.noteapplicationrx.notes.add;
 
+import android.annotation.SuppressLint;
+import android.support.annotation.NonNull;
+
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
+import com.example.rafaelsavaris.noteapplicationrx.utils.scheduler.BaseScheduler;
+
+import io.reactivex.disposables.CompositeDisposable;
 
 /**
  * Created by rafael.savaris on 01/12/2017.
  */
 
-public class AddEditNotePresenter implements AddEditNoteContract.Presenter, NotesDatasource.GetNoteCallBack {
+public class AddEditNotePresenter implements AddEditNoteContract.Presenter{
 
     private boolean mIsMarked = false;
 
@@ -15,26 +21,26 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter, Note
 
     private final AddEditNoteContract.View mView;
 
+    private final BaseScheduler mBaseScheduler;
+
     private boolean mIsDataMissing;
 
     private String mNoteId;
 
-    public AddEditNotePresenter(String noteId, NotesDatasource notesDatasource, AddEditNoteContract.View view, boolean shouldLoadDataFromRepo) {
+    @NonNull
+    private CompositeDisposable mCompositeDisposable;
+
+    public AddEditNotePresenter(String noteId, NotesDatasource notesDatasource, AddEditNoteContract.View view, boolean shouldLoadDataFromRepo, BaseScheduler baseScheduler) {
         mNoteId = noteId;
         mNotesRepository = notesDatasource;
         mView = view;
+        mBaseScheduler = baseScheduler;
+
         mIsDataMissing = shouldLoadDataFromRepo;
 
+        mCompositeDisposable = new CompositeDisposable();
+
         mView.setPresenter(this);
-
-    }
-
-    @Override
-    public void start() {
-
-        if (!isNewNote() && mIsDataMissing){
-            populateNote();
-        }
 
     }
 
@@ -49,8 +55,43 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter, Note
 
     }
 
+    @SuppressLint("NewApi")
     public void populateNote(){
-        mNotesRepository.getNote(mNoteId, this);
+
+        mCompositeDisposable.add(mNotesRepository
+                .getNote(mNoteId)
+                .subscribeOn(mBaseScheduler.computation())
+                .observeOn(mBaseScheduler.ui())
+                .subscribe(note -> {
+
+                    if (note.isPresent()){
+
+                        Note note1 = note.get();
+
+                        if (mView.isActive()){
+
+                            if (mView.isActive()){
+                                mView.setTitle(note1.getTitle());
+                                mView.setText(note1.getText());
+                                mIsMarked = note1.isMarked();
+                            }
+
+                            mIsDataMissing = false;
+
+                        }
+
+                    }
+
+                },
+
+                        throwable -> {
+
+                            if (mView.isActive()){
+                                mView.showEmptyNotesError();
+                            }
+
+                        }));
+
     }
 
     public boolean isDataMissing() {
@@ -59,28 +100,6 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter, Note
 
     private boolean isNewNote(){
         return mNoteId == null;
-    }
-
-    @Override
-    public void onNoteLoaded(Note note) {
-
-        if (mView.isActive()){
-            mView.setTitle(note.getTitle());
-            mView.setText(note.getText());
-            mIsMarked = note.isMarked();
-        }
-
-        mIsDataMissing = false;
-
-    }
-
-    @Override
-    public void onDataNotAvailable() {
-
-        if (mView.isActive()){
-            mView.showEmptyNotesError();
-        }
-
     }
 
     private void createNote(String title, String text){
@@ -104,4 +123,17 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter, Note
 
     }
 
+    @Override
+    public void subscribe() {
+
+        if (!isNewNote() && mIsDataMissing){
+            populateNote();
+        }
+
+    }
+
+    @Override
+    public void unsubscribe() {
+        mCompositeDisposable.clear();
+    }
 }
