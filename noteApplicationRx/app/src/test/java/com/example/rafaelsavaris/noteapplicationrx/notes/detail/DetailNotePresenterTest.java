@@ -3,6 +3,8 @@ package com.example.rafaelsavaris.noteapplicationrx.notes.detail;
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesRepository;
+import com.example.rafaelsavaris.noteapplicationrx.utils.scheduler.BaseScheduler;
+import com.example.rafaelsavaris.noteapplicationrx.utils.scheduler.ImmediateSchedulerProvider;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -12,6 +14,8 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+
+import io.reactivex.Flowable;
 
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.never;
@@ -24,9 +28,15 @@ import static org.mockito.Mockito.when;
 
 public class DetailNotePresenterTest {
 
-    private final Note NOTE = new Note("Title", "Text");
+    private String TITLE = "Title";
+    private String TITLE2 = "Title2";
 
-    private final Note MARKED_NOTE = new Note("Title", "Text", true);
+    private String TEXT = "Text";
+    private String TEXT2 = "Text2";
+
+    private final Note NOTE = new Note(TITLE, TEXT);
+
+    private final Note MARKED_NOTE = new Note(TITLE2, TEXT2, true);
 
     private final String INVALID_ID = "";
 
@@ -36,8 +46,7 @@ public class DetailNotePresenterTest {
     @Mock
     private DetailNoteContract.View mView;
 
-    @Captor
-    private ArgumentCaptor<NotesDatasource.GetNoteCallBack> mGetNoteCallBackArgumentCaptor;
+    private BaseScheduler mBaseScheduler;
 
     private DetailNotePresenter mDetailNotePresenter;
 
@@ -46,6 +55,8 @@ public class DetailNotePresenterTest {
 
         MockitoAnnotations.initMocks(this);
 
+        mBaseScheduler = new ImmediateSchedulerProvider();
+
         when(mView.isActive()).thenReturn(true);
 
     }
@@ -53,7 +64,7 @@ public class DetailNotePresenterTest {
     @Test
     public void createPresenter_setsThePresenterToView(){
 
-        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView);
+        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView, mBaseScheduler);
 
         verify(mView).setPresenter(mDetailNotePresenter);
 
@@ -62,47 +73,44 @@ public class DetailNotePresenterTest {
     @Test
     public void getNoteFromRepositoryAndLoadIntoView(){
 
-        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView);
+        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView, mBaseScheduler);
 
-        mDetailNotePresenter.start();
+        setNoteAvailable(NOTE);
 
-        verify(mNotesRepository).getNote(eq(NOTE.getId()), mGetNoteCallBackArgumentCaptor.capture());
+        mDetailNotePresenter.subscribe();
 
-        InOrder inOrder = Mockito.inOrder(mView);
-        inOrder.verify(mView).setLoadingIndicator(true);
+        verify(mNotesRepository).getNote(eq(NOTE.getId()));
 
-        mGetNoteCallBackArgumentCaptor.getValue().onNoteLoaded(NOTE);
+        verify(mView).setLoadingIndicator(true);
 
-        inOrder.verify(mView).setLoadingIndicator(false);
+        verify(mView).setLoadingIndicator(false);
 
-        verify(mView).showTitle(NOTE.getTitle());
+        verify(mView).showTitle(TITLE);
 
-        verify(mView).showText(NOTE.getText());
+        verify(mView).showText(TEXT);
 
         verify(mView).showMarkedStatus(false);
-
 
     }
 
     @Test
     public void getMarkedNoteFromRepositoryAndLoadIntoView(){
 
-        mDetailNotePresenter = new DetailNotePresenter(MARKED_NOTE.getId(), mNotesRepository, mView);
+        mDetailNotePresenter = new DetailNotePresenter(MARKED_NOTE.getId(), mNotesRepository, mView, mBaseScheduler);
 
-        mDetailNotePresenter.start();
+        setNoteAvailable(MARKED_NOTE);
 
-        verify(mNotesRepository).getNote(eq(MARKED_NOTE.getId()), mGetNoteCallBackArgumentCaptor.capture());
+        mDetailNotePresenter.subscribe();
 
-        InOrder inOrder = Mockito.inOrder(mView);
-        inOrder.verify(mView).setLoadingIndicator(true);
+        verify(mNotesRepository).getNote(eq(MARKED_NOTE.getId()));
 
-        mGetNoteCallBackArgumentCaptor.getValue().onNoteLoaded(MARKED_NOTE);
+        verify(mView).setLoadingIndicator(true);
 
-        inOrder.verify(mView).setLoadingIndicator(false);
+        verify(mView).setLoadingIndicator(false);
 
-        verify(mView).showTitle(MARKED_NOTE.getTitle());
+        verify(mView).showTitle(TITLE2);
 
-        verify(mView).showText(MARKED_NOTE.getText());
+        verify(mView).showText(TEXT2);
 
         verify(mView).showMarkedStatus(true);
 
@@ -111,9 +119,9 @@ public class DetailNotePresenterTest {
     @Test
     public void getUnknownNoteFromRepositoryAndLoadIntoView(){
 
-        mDetailNotePresenter = new DetailNotePresenter(INVALID_ID, mNotesRepository, mView);
+        mDetailNotePresenter = new DetailNotePresenter(INVALID_ID, mNotesRepository, mView, mBaseScheduler);
 
-        mDetailNotePresenter.start();
+        mDetailNotePresenter.subscribe();
 
         verify(mView).showMissingNote();
 
@@ -122,7 +130,7 @@ public class DetailNotePresenterTest {
     @Test
     public void deleteNote(){
 
-        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView);
+        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView, mBaseScheduler);
 
         mDetailNotePresenter.deleteNote();
 
@@ -135,9 +143,11 @@ public class DetailNotePresenterTest {
     @Test
     public void markNote(){
 
-        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView);
+        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView, mBaseScheduler);
 
-        mDetailNotePresenter.start();
+        setNoteAvailable(NOTE);
+
+        mDetailNotePresenter.subscribe();
 
         mDetailNotePresenter.markNote();
 
@@ -150,13 +160,15 @@ public class DetailNotePresenterTest {
     @Test
     public void unMarkNote(){
 
-        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView);
+        mDetailNotePresenter = new DetailNotePresenter(MARKED_NOTE.getId(), mNotesRepository, mView, mBaseScheduler);
 
-        mDetailNotePresenter.start();
+        setNoteAvailable(MARKED_NOTE);
+
+        mDetailNotePresenter.subscribe();
 
         mDetailNotePresenter.unMarkNote();
 
-        verify(mNotesRepository).unMarkNote(NOTE.getId());
+        verify(mNotesRepository).unMarkNote(MARKED_NOTE.getId());
 
         verify(mView).showNoteUnMarked();
 
@@ -166,7 +178,7 @@ public class DetailNotePresenterTest {
     @Test
     public void showNoteWhenEditing(){
 
-        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView);
+        mDetailNotePresenter = new DetailNotePresenter(NOTE.getId(), mNotesRepository, mView, mBaseScheduler);
 
         mDetailNotePresenter.editNote();
 
@@ -177,7 +189,7 @@ public class DetailNotePresenterTest {
     @Test
     public void invalidNoteIsNotShowWhenEditing(){
 
-        mDetailNotePresenter = new DetailNotePresenter(INVALID_ID, mNotesRepository, mView);
+        mDetailNotePresenter = new DetailNotePresenter(INVALID_ID, mNotesRepository, mView, mBaseScheduler);
 
         mDetailNotePresenter.editNote();
 
@@ -185,6 +197,10 @@ public class DetailNotePresenterTest {
 
         verify(mView).showMissingNote();
 
+    }
+
+    private void setNoteAvailable(Note note){
+        when(mNotesRepository.getNote(eq(note.getId()))).thenReturn(Flowable.just(note));
     }
 
 }

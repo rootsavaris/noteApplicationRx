@@ -13,7 +13,7 @@ import io.reactivex.disposables.CompositeDisposable;
  * Created by rafael.savaris on 01/12/2017.
  */
 
-public class AddEditNotePresenter implements AddEditNoteContract.Presenter{
+public class AddEditNotePresenter implements AddEditNoteContract.Presenter {
 
     private boolean mIsMarked = false;
 
@@ -47,7 +47,7 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter{
     @Override
     public void saveNote(String title, String text) {
 
-        if (isNewNote()){
+        if (isNewNote()) {
             createNote(title, text);
         } else {
             updateNote(title, text);
@@ -56,7 +56,7 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter{
     }
 
     @SuppressLint("NewApi")
-    public void populateNote(){
+    public void populateNote() {
 
         mCompositeDisposable.add(mNotesRepository
                 .getNote(mNoteId)
@@ -64,29 +64,23 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter{
                 .observeOn(mBaseScheduler.ui())
                 .subscribe(note -> {
 
-                    if (note.isPresent()){
+                            if (mView.isActive()) {
 
-                        Note note1 = note.get();
+                                if (mView.isActive()) {
+                                    mView.setTitle(note.getTitle());
+                                    mView.setText(note.getText());
+                                    mIsMarked = note.isMarked();
+                                }
 
-                        if (mView.isActive()){
+                                mIsDataMissing = false;
 
-                            if (mView.isActive()){
-                                mView.setTitle(note1.getTitle());
-                                mView.setText(note1.getText());
-                                mIsMarked = note1.isMarked();
                             }
 
-                            mIsDataMissing = false;
-
-                        }
-
-                    }
-
-                },
+                        },
 
                         throwable -> {
 
-                            if (mView.isActive()){
+                            if (mView.isActive()) {
                                 mView.showEmptyNotesError();
                             }
 
@@ -98,15 +92,15 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter{
         return mIsDataMissing;
     }
 
-    private boolean isNewNote(){
+    private boolean isNewNote() {
         return mNoteId == null;
     }
 
-    private void createNote(String title, String text){
+    private void createNote(String title, String text) {
 
         Note note = new Note(title, text);
 
-        if (note.isEmpty()){
+        if (note.isEmpty()) {
             mView.showEmptyNotesError();
         } else {
             mNotesRepository.saveNote(note);
@@ -115,7 +109,7 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter{
 
     }
 
-    private void updateNote(String title, String text){
+    private void updateNote(String title, String text) {
 
         mNotesRepository.saveNote(new Note(title, text, mNoteId, mIsMarked));
 
@@ -126,7 +120,7 @@ public class AddEditNotePresenter implements AddEditNoteContract.Presenter{
     @Override
     public void subscribe() {
 
-        if (!isNewNote() && mIsDataMissing){
+        if (!isNewNote() && mIsDataMissing) {
             populateNote();
         }
 

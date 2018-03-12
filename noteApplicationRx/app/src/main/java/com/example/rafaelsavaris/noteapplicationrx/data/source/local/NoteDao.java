@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 import io.reactivex.Flowable;
+import io.reactivex.Maybe;
 
 /**
  * Created by rafael.savaris on 04/01/2018.
@@ -24,7 +25,7 @@ public interface NoteDao {
     Flowable<List<Note>> getNotes();
 
     @Query("SELECT * from notes WHERE id = :noteId")
-    Flowable<Optional<Note>> getNoteById(String noteId);
+    Flowable<Note> getNoteById(String noteId);
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertNote(Note note);

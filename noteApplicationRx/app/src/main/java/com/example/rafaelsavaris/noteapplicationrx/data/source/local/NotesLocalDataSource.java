@@ -1,6 +1,8 @@
 package com.example.rafaelsavaris.noteapplicationrx.data.source.local;
 
 
+import android.annotation.SuppressLint;
+
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
 import com.example.rafaelsavaris.noteapplicationrx.utils.AppExecutors;
@@ -54,8 +56,9 @@ public class NotesLocalDataSource implements NotesDatasource {
         return mNoteDao.getNotes();
     }
 
+    @SuppressLint("NewApi")
     @Override
-    public Flowable<Optional<Note>> getNote(final String noteId) {
+    public Flowable<Note> getNote(final String noteId) {
         return mNoteDao.getNoteById(noteId);
     }
 

@@ -11,16 +11,23 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.Collections;
 import java.util.List;
 
+import io.reactivex.Flowable;
+import io.reactivex.subscribers.TestSubscriber;
+
+import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Matchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Created by rafael.savaris on 10/01/2018.
@@ -47,17 +54,7 @@ public class NotesRepositoryTest {
     @Mock
     private NotesDatasource mNotesDatasourceLocal;
 
-    @Mock
-    private NotesDatasource.LoadNotesCallBack mLoadNotesCallBack;
-
-    @Mock
-    private NotesDatasource.GetNoteCallBack mGetNoteCallBack;
-
-    @Captor
-    private ArgumentCaptor<NotesDatasource.LoadNotesCallBack> mNotesCallBackArgumentCaptor;
-
-    @Captor
-    private ArgumentCaptor<NotesDatasource.GetNoteCallBack> mGetNoteCallBackArgumentCaptor;
+    private TestSubscriber<List<Note>> mTestSubscriber;
 
     @Before
     public void setup(){
@@ -65,6 +62,8 @@ public class NotesRepositoryTest {
         MockitoAnnotations.initMocks(this);
 
         mNotesRepository = NotesRepository.getInstance(mNotesDatasourceRemote, mNotesDatasourceLocal);
+
+        mTestSubscriber = new TestSubscriber<>();
 
     }
 
@@ -74,22 +73,67 @@ public class NotesRepositoryTest {
     }
 
     @Test
-    public void getNotes_repositoryCachesAfterFirstApiCall(){
+    public void getNotes_repositoryCachesAfterFirstSubscription_whenNotesAvailableInLocalStorage(){
 
-        twoNotesLoadCallsToRepository(mLoadNotesCallBack);
+        setNotesAvailable(mNotesDatasourceLocal, NOTES);
 
-        verify(mNotesDatasourceRemote).getNotes(any(NotesDatasource.LoadNotesCallBack.class));
+        setNotesUnavailable(mNotesDatasourceRemote);
+
+        TestSubscriber<List<Note>> testSubscriber1 = new TestSubscriber<>();
+        mNotesRepository.getNotes().subscribe(testSubscriber1);
+
+        TestSubscriber<List<Note>> testSubscriber2 = new TestSubscriber<>();
+        mNotesRepository.getNotes().subscribe(testSubscriber2);
+
+        verify(mNotesDatasourceRemote).getNotes();
+        verify(mNotesDatasourceLocal).getNotes();
+
+        assertFalse(mNotesRepository.cacheIsDirty);
+
+        testSubscriber1.assertValue(NOTES);
+        testSubscriber2.assertValue(NOTES);
+
+    }
+
+    @Test
+    public void getNotes_repositoryCachesAfterFirstSubscription_whenNotesAvailableInRemoteStorage(){
+
+        setNotesAvailable(mNotesDatasourceRemote, NOTES);
+
+        setNotesUnavailable(mNotesDatasourceLocal);
+
+        TestSubscriber<List<Note>> testSubscriber1 = new TestSubscriber<>();
+        mNotesRepository.getNotes().subscribe(testSubscriber1);
+
+        TestSubscriber<List<Note>> testSubscriber2 = new TestSubscriber<>();
+        mNotesRepository.getNotes().subscribe(testSubscriber2);
+
+        verify(mNotesDatasourceRemote).getNotes();
+        verify(mNotesDatasourceLocal).getNotes();
+
+        assertFalse(mNotesRepository.cacheIsDirty);
+
+        testSubscriber1.assertValue(NOTES);
+        testSubscriber2.assertValue(NOTES);
 
     }
 
     @Test
     public void getNotes_requestAllNotesFromLocalDataSource(){
 
-        mNotesRepository.getNotes(mLoadNotesCallBack);
+        setNotesAvailable(mNotesDatasourceLocal, NOTES);
 
-        verify(mNotesDatasourceLocal).getNotes(any(NotesDatasource.LoadNotesCallBack.class));
+        setNotesUnavailable(mNotesDatasourceRemote);
+
+        mNotesRepository.getNotes().subscribe(mTestSubscriber);
+
+        verify(mNotesDatasourceLocal).getNotes();
+
+        mTestSubscriber.assertValue(NOTES);
 
     }
+
+
 
     @Test
     public void saveNote_savesNoteToServiceApi(){
@@ -184,9 +228,36 @@ public class NotesRepositoryTest {
     @Test
     public void getNote_requestsSingleNoteFromLocalDatasource(){
 
-        mNotesRepository.getNote(NOTE_TITLE, mGetNoteCallBack);
+        Note note = new Note(NOTE_TITLE, NOTE_TEXT, true);
 
-        verify(mNotesDatasourceLocal).getNote(eq(NOTE_TITLE), any(NotesDatasource.GetNoteCallBack.class));
+        setNoteAvailable(mNotesDatasourceLocal, note);
+
+        setNoteUnavailable(mNotesDatasourceRemote, note.getId());
+
+        TestSubscriber<Note> testSubscriber = new TestSubscriber<>();
+
+        mNotesRepository.getNote(note.getId()).subscribe(testSubscriber);
+
+        verify(mNotesDatasourceLocal).getNote(eq(note.getId()));
+
+        testSubscriber.assertValue(note);
+
+    }
+
+    @Test
+    public void getNote_whenDataNotLocal_fails(){
+
+        Note note = new Note(NOTE_TITLE, NOTE_TEXT, true);
+
+        setNoteAvailable(mNotesDatasourceRemote, note);
+
+        setNoteUnavailable(mNotesDatasourceLocal, note.getId());
+
+        TestSubscriber<Note> testSubscriber = new TestSubscriber<>();
+
+        mNotesRepository.getNote(note.getId()).subscribe(testSubscriber);
+
+        testSubscriber.assertValue(note);
 
     }
 
@@ -258,15 +329,17 @@ public class NotesRepositoryTest {
     @Test
     public void getNotesWithDirtyCache_notesAreRetrievedFromRemote(){
 
-        mNotesRepository.refreshNotes();
-
-        mNotesRepository.getNotes(mLoadNotesCallBack);
-
         setNotesAvailable(mNotesDatasourceRemote, NOTES);
 
-        verify(mNotesDatasourceLocal, never()).getNotes(mLoadNotesCallBack);
+        mNotesRepository.refreshNotes();
 
-        verify(mLoadNotesCallBack).onNotesLoaded(NOTES);
+        mNotesRepository.getNotes().subscribe(mTestSubscriber);
+
+        verify(mNotesDatasourceLocal, never()).getNotes();
+
+        verify(mNotesDatasourceRemote).getNotes();
+
+        mTestSubscriber.assertValue(NOTES);
 
     }
 
@@ -341,19 +414,20 @@ public class NotesRepositoryTest {
     }
 
     private void setNotesAvailable(NotesDatasource notesDatasource, List<Note> notes){
-        verify(notesDatasource).getNotes(mNotesCallBackArgumentCaptor.capture());
-        mNotesCallBackArgumentCaptor.getValue().onNotesLoaded(notes);
+        when(notesDatasource.getNotes()).thenReturn(Flowable.just(notes).concatWith(Flowable.never()));
     }
 
     private void setNotesUnavailable(NotesDatasource notesDatasource){
-        verify(notesDatasource).getNotes(mNotesCallBackArgumentCaptor.capture());
-        mNotesCallBackArgumentCaptor.getValue().onDataNotAvailable();
+        when(notesDatasource.getNotes()).thenReturn(Flowable.just(Collections.emptyList()));
+
+    }
+
+    private void setNoteAvailable(NotesDatasource notesDatasource, Note note){
+        when(notesDatasource.getNote(eq(note.getId()))).thenReturn(Flowable.just(note).concatWith(Flowable.never()));
     }
 
     private void setNoteUnavailable(NotesDatasource notesDatasource, String noteId){
-        verify(notesDatasource).getNote(eq(noteId), mGetNoteCallBackArgumentCaptor.capture());
-        mGetNoteCallBackArgumentCaptor.getValue().onDataNotAvailable();
+        when(notesDatasource.getNote(eq(noteId))).thenReturn(Flowable.empty());
     }
-
 
 }

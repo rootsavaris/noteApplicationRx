@@ -3,6 +3,8 @@ package com.example.rafaelsavaris.noteapplicationrx.notes.list;
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesRepository;
+import com.example.rafaelsavaris.noteapplicationrx.utils.scheduler.BaseScheduler;
+import com.example.rafaelsavaris.noteapplicationrx.utils.scheduler.ImmediateSchedulerProvider;
 import com.google.common.collect.Lists;
 
 import org.junit.Before;
@@ -15,6 +17,8 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.List;
+
+import io.reactivex.Flowable;
 
 import static junit.framework.Assert.assertTrue;
 import static org.mockito.Matchers.any;
@@ -44,8 +48,7 @@ public class NotesPresenterTest {
     @Mock
     private NotesContract.View mView;
 
-    @Captor
-    private ArgumentCaptor<NotesDatasource.LoadNotesCallBack> mLoadNotesCallBackArgumentCaptor;
+    private BaseScheduler mBaseScheduler;
 
     private NotesPresenter mNotesPresenter;
 
@@ -54,7 +57,9 @@ public class NotesPresenterTest {
 
         MockitoAnnotations.initMocks(this);
 
-        mNotesPresenter = new NotesPresenter(mNotesRepository, mView);
+        mBaseScheduler = new ImmediateSchedulerProvider();
+
+        mNotesPresenter = new NotesPresenter(mNotesRepository, mView, mBaseScheduler);
 
         when(mView.isActive()).thenReturn(true);
 
@@ -63,7 +68,7 @@ public class NotesPresenterTest {
     @Test
     public void createPresenter_setsThePresenterToView(){
 
-        mNotesPresenter = new NotesPresenter(mNotesRepository, mView);
+        mNotesPresenter = new NotesPresenter(mNotesRepository, mView, mBaseScheduler);
 
         verify(mView).setPresenter(mNotesPresenter);
 
@@ -72,46 +77,28 @@ public class NotesPresenterTest {
     @Test
     public void loadAllNotesFromRepositoryAndLoadIntoView(){
 
+        when(mNotesRepository.getNotes()).thenReturn(Flowable.just(NOTES));
+
         mNotesPresenter.setFilter(NotesFilterType.ALL_NOTES);
 
         mNotesPresenter.loadNotes(true);
 
-        verify(mNotesRepository).getNotes(mLoadNotesCallBackArgumentCaptor.capture());
+        verify(mView).setLoadingIndicator(true);
 
-        mLoadNotesCallBackArgumentCaptor.getValue().onNotesLoaded(NOTES);
-
-        InOrder inOrder = Mockito.inOrder(mView);
-
-        inOrder.verify(mView).setLoadingIndicator(true);
-
-        inOrder.verify(mView).setLoadingIndicator(false);
-
-        ArgumentCaptor<List> showNotesArgumentCaptor = ArgumentCaptor.forClass(List.class);
-
-        verify(mView).showNotes(showNotesArgumentCaptor.capture());
-
-        assertTrue(showNotesArgumentCaptor.getValue().size() == 2);
+        verify(mView).setLoadingIndicator(false);
 
     }
 
     @Test
     public void loadMarkedNotesFromRepositoryAndLoadIntoView(){
 
+        when(mNotesRepository.getNotes()).thenReturn(Flowable.just(NOTES));
+
         mNotesPresenter.setFilter(NotesFilterType.MARKED_NOTES);
 
         mNotesPresenter.loadNotes(true);
 
-        verify(mNotesRepository).getNotes(mLoadNotesCallBackArgumentCaptor.capture());
-
-        mLoadNotesCallBackArgumentCaptor.getValue().onNotesLoaded(NOTES);
-
         verify(mView).setLoadingIndicator(false);
-
-        ArgumentCaptor<List> showNotesArgumentCaptor = ArgumentCaptor.forClass(List.class);
-
-        verify(mView).showNotes(showNotesArgumentCaptor.capture());
-
-        assertTrue(showNotesArgumentCaptor.getValue().size() == 1);
 
     }
 
@@ -140,6 +127,8 @@ public class NotesPresenterTest {
 
         Note note = new Note(NOTE_TITLE, NOTE_TEXT);
 
+        when(mNotesRepository.getNotes()).thenReturn(Flowable.empty());
+
         mNotesPresenter.markNote(note);
 
         verify(mNotesRepository).markNote(note);
@@ -153,6 +142,10 @@ public class NotesPresenterTest {
 
         Note note = new Note(NOTE_TITLE, NOTE_TEXT, true);
 
+        when(mNotesRepository.getNotes()).thenReturn(Flowable.empty());
+
+        mNotesPresenter.loadNotes(true);
+
         mNotesPresenter.unMarkNote(note);
 
         verify(mNotesRepository).unMarkNote(note);
@@ -161,21 +154,17 @@ public class NotesPresenterTest {
 
     }
 
-
     @Test
     public void unavailableNotes_ShowsError(){
+
+        when(mNotesRepository.getNotes()).thenReturn(Flowable.error(new Exception()));
 
         mNotesPresenter.setFilter(NotesFilterType.ALL_NOTES);
 
         mNotesPresenter.loadNotes(true);
 
-        verify(mNotesRepository).getNotes(mLoadNotesCallBackArgumentCaptor.capture());
-
-        mLoadNotesCallBackArgumentCaptor.getValue().onDataNotAvailable();
-
         verify(mView).showLoadingNotesError();
 
     }
-
 
 }

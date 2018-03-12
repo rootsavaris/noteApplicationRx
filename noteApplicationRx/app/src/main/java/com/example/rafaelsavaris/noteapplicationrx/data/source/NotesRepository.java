@@ -58,13 +58,13 @@ public class NotesRepository implements NotesDatasource {
 
         if (mCachedNotes != null && !cacheIsDirty) {
             return Flowable.fromIterable(mCachedNotes.values()).toList().toFlowable();
-        } else if (mCachedNotes == null){
+        } else if (mCachedNotes == null) {
             mCachedNotes = new LinkedHashMap<>();
         }
 
         Flowable<List<Note>> remoteNotes = getNotesFromRemoteDataSource();
 
-        if (cacheIsDirty){
+        if (cacheIsDirty) {
             return remoteNotes;
         } else {
 
@@ -81,30 +81,25 @@ public class NotesRepository implements NotesDatasource {
 
     @SuppressLint("NewApi")
     @Override
-    public Flowable<Optional<Note>> getNote(final String noteId) {
+    public Flowable<Note> getNote(final String noteId) {
 
         Note cachedNote = getNoteWithId(noteId);
 
-        if (cachedNote != null){
-            return Flowable.just(Optional.of(cachedNote));
+        if (cachedNote != null) {
+            return Flowable.just(cachedNote);
         }
 
-        Flowable<Optional<Note>> localNote = getNoteWithIdFromLocalRepository(noteId);
+        Flowable<Note> localNote = getNoteWithIdFromLocalRepository(noteId);
 
-        Flowable<Optional<Note>> remoteNote = mNotesRemote.getNote(noteId)
+        Flowable<Note> remoteNote = mNotesRemote.getNote(noteId)
                 .doOnNext(note -> {
 
-                    if (note.isPresent()){
+                            mNotesLocal.saveNote(note);
 
-                        Note note1 = note.get();
+                            mCachedNotes.put(note.getId(), note);
 
-                        mNotesLocal.saveNote(note1);
-
-                        mCachedNotes.put(note1.getId(), note1);
-
-                    }
-
-                });
+                        }
+                );
 
         return Flowable.concat(localNote, remoteNote).firstElement().toFlowable();
 
@@ -116,7 +111,7 @@ public class NotesRepository implements NotesDatasource {
         mNotesRemote.deleteAllNotes();
         mNotesLocal.deleteAllNotes();
 
-        if (mCachedNotes == null){
+        if (mCachedNotes == null) {
             mCachedNotes = new LinkedHashMap<>();
         }
 
@@ -131,7 +126,7 @@ public class NotesRepository implements NotesDatasource {
 
         mNotesLocal.saveNote(note);
 
-        if (mCachedNotes == null){
+        if (mCachedNotes == null) {
             mCachedNotes = new LinkedHashMap<>();
         }
 
@@ -152,7 +147,7 @@ public class NotesRepository implements NotesDatasource {
 
         Note markedNote = new Note(note.getTitle(), note.getText(), note.getId(), true);
 
-        if (mCachedNotes == null){
+        if (mCachedNotes == null) {
             mCachedNotes = new LinkedHashMap<>();
         }
 
@@ -173,7 +168,7 @@ public class NotesRepository implements NotesDatasource {
 
         Note markedNote = new Note(note.getTitle(), note.getText(), note.getId());
 
-        if (mCachedNotes == null){
+        if (mCachedNotes == null) {
             mCachedNotes = new LinkedHashMap<>();
         }
 
@@ -192,17 +187,17 @@ public class NotesRepository implements NotesDatasource {
         mNotesRemote.clearMarkedNotes();
         mNotesLocal.clearMarkedNotes();
 
-        if (mCachedNotes == null){
+        if (mCachedNotes == null) {
             mCachedNotes = new LinkedHashMap<>();
         }
 
         Iterator<Map.Entry<String, Note>> it = mCachedNotes.entrySet().iterator();
 
-        while (it.hasNext()){
+        while (it.hasNext()) {
 
             Map.Entry<String, Note> entry = it.next();
 
-            if (entry.getValue().isMarked()){
+            if (entry.getValue().isMarked()) {
                 it.remove();
             }
 
@@ -225,11 +220,11 @@ public class NotesRepository implements NotesDatasource {
         return mNotesRemote.getNotes()
                 .flatMap(notes -> Flowable.fromIterable(notes).doOnNext(note -> {
 
-            mNotesLocal.saveNote(note);
+                    mNotesLocal.saveNote(note);
 
-            mCachedNotes.put(note.getId(), note);
+                    mCachedNotes.put(note.getId(), note);
 
-        }).toList().toFlowable()).doOnComplete(() -> cacheIsDirty = false);
+                }).toList().toFlowable()).doOnComplete(() -> cacheIsDirty = false);
 
     }
 
@@ -282,15 +277,12 @@ public class NotesRepository implements NotesDatasource {
     }
 
     @SuppressLint("NewApi")
-    Flowable<Optional<Note>> getNoteWithIdFromLocalRepository(String noteId){
+    Flowable<Note> getNoteWithIdFromLocalRepository(String noteId) {
 
         return mNotesLocal.getNote(noteId)
+
                 .doOnNext(note -> {
-
-                    if (note.isPresent()){
-                        mCachedNotes.put(noteId, note.get());
-                    }
-
+                    mCachedNotes.put(noteId, note);
                 })
                 .firstElement().toFlowable();
 

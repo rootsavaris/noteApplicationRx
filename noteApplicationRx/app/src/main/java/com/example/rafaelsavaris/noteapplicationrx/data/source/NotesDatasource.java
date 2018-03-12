@@ -15,7 +15,7 @@ public interface NotesDatasource {
 
     Flowable<List<Note>> getNotes();
 
-    Flowable<Optional<Note>> getNote(String noteId);
+    Flowable<Note> getNote(String noteId);
 
     void deleteAllNotes();
 

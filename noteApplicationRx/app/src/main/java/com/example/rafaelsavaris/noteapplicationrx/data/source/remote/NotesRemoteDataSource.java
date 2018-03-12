@@ -60,12 +60,12 @@ public class NotesRemoteDataSource implements NotesDatasource {
 
     @SuppressLint("NewApi")
     @Override
-    public Flowable<Optional<Note>> getNote(String noteId) {
+    public Flowable<Note> getNote(String noteId) {
 
         final Note note = NOTES_DATA.get(noteId);
 
         if (note != null){
-            return Flowable.just(Optional.of(note)).delay(TIME_SERVICE, TimeUnit.MILLISECONDS);
+            return Flowable.just(note).delay(TIME_SERVICE, TimeUnit.MILLISECONDS);
         } else {
             return Flowable.empty();
         }

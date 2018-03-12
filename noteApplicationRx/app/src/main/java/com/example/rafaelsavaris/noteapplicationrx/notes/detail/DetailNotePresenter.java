@@ -123,7 +123,6 @@ public class DetailNotePresenter implements DetailNoteContract.Presenter {
 
         mView.setLoadingIndicator(true);
 
-        /*
         mCompositeDisposable.add(mNotesRepository
                 .getNote(mNoteId)
                 .subscribeOn(mBaseScheduler.computation())
@@ -139,8 +138,6 @@ public class DetailNotePresenter implements DetailNoteContract.Presenter {
                         () -> mView.setLoadingIndicator(false)
 
                         ));
-
-                        */
 
 
     }
