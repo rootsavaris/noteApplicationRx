@@ -7,6 +7,8 @@ import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
 import com.google.common.collect.Lists;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,16 +43,19 @@ public class MockRemoteDataSource implements NotesDatasource {
 
     @Override
     public Flowable<List<Note>> getNotes() {
-        //loadNotesCallBack.onNotesLoaded(Lists.newArrayList(NOTES_DATA.values()));
-        return null;
+
+        Collection<Note> notes = NOTES_DATA.values();
+
+        return Flowable.fromIterable(notes).toList().toFlowable();
+
     }
 
     @Override
-    public void getNote(String noteId, final GetNoteCallBack getNoteCallBack) {
+    public Flowable<Note> getNote(String noteId) {
 
-        final Note note = NOTES_DATA.get(noteId);
+        Note note = NOTES_DATA.get(noteId);
 
-        getNoteCallBack.onNoteLoaded(note);
+        return Flowable.just(note);
 
     }
 

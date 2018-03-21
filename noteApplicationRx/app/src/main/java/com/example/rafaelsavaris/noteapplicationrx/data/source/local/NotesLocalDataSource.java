@@ -5,10 +5,8 @@ import android.annotation.SuppressLint;
 
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
-import com.example.rafaelsavaris.noteapplicationrx.utils.AppExecutors;
 
 import java.util.List;
-import java.util.Optional;
 
 import io.reactivex.Flowable;
 
@@ -22,25 +20,14 @@ public class NotesLocalDataSource implements NotesDatasource {
 
     private NoteDao mNoteDao;
 
-    private AppExecutors mAppExecutors;
-
-    private NotesLocalDataSource(AppExecutors appExecutors, NoteDao noteDao) {
-        mAppExecutors = appExecutors;
+    private NotesLocalDataSource(NoteDao noteDao) {
         mNoteDao = noteDao;
     }
 
-    public static NotesLocalDataSource getInstance(AppExecutors appExecutors, NoteDao noteDao) {
+    public static NotesLocalDataSource getInstance(NoteDao noteDao) {
 
         if (mInstance == null) {
-
-            synchronized (NotesLocalDataSource.class){
-
-                if (mInstance == null){
-                    mInstance = new NotesLocalDataSource(appExecutors, noteDao);
-                }
-
-            }
-
+            mInstance = new NotesLocalDataSource(noteDao);
         }
 
         return mInstance;
@@ -64,30 +51,12 @@ public class NotesLocalDataSource implements NotesDatasource {
 
     @Override
     public void deleteAllNotes() {
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                mNoteDao.deleteNotes();
-            }
-        };
-
-        mAppExecutors.getDiskIO().execute(runnable);
-
+        mNoteDao.deleteNotes();
     }
 
     @Override
     public void saveNote(final Note note) {
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                mNoteDao.insertNote(note);
-            }
-        };
-
-        mAppExecutors.getDiskIO().execute(runnable);
-
+        mNoteDao.insertNote(note);
     }
 
     @Override
@@ -96,16 +65,7 @@ public class NotesLocalDataSource implements NotesDatasource {
 
     @Override
     public void markNote(final Note note) {
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                mNoteDao.updateMarked(note.getId(), true);
-            }
-        };
-
-        mAppExecutors.getDiskIO().execute(runnable);
-
+        mNoteDao.updateMarked(note.getId(), true);
     }
 
     @Override
@@ -114,16 +74,7 @@ public class NotesLocalDataSource implements NotesDatasource {
 
     @Override
     public void unMarkNote(final Note note) {
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                mNoteDao.updateMarked(note.getId(), false);
-            }
-        };
-
-        mAppExecutors.getDiskIO().execute(runnable);
-
+        mNoteDao.updateMarked(note.getId(), false);
     }
 
     @Override
@@ -133,30 +84,12 @@ public class NotesLocalDataSource implements NotesDatasource {
 
     @Override
     public void clearMarkedNotes() {
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                mNoteDao.deleteMarkedNotes();
-            }
-        };
-
-        mAppExecutors.getDiskIO().execute(runnable);
-
+        mNoteDao.deleteMarkedNotes();
     }
 
     @Override
     public void deleteNote(final String noteId) {
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                mNoteDao.deleteNoteById(noteId);
-            }
-        };
-
-        mAppExecutors.getDiskIO().execute(runnable);
-
+        mNoteDao.deleteNoteById(noteId);
     }
 
 }

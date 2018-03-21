@@ -13,6 +13,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import io.reactivex.Flowable;
 import io.reactivex.subscribers.TestSubscriber;
@@ -346,26 +347,30 @@ public class NotesRepositoryTest {
     @Test
     public void getNotesWithLocalDatasourceUnavailable_notesAreRetrieveFromRemote(){
 
-        mNotesRepository.getNotes(mLoadNotesCallBack);
-
         setNotesUnavailable(mNotesDatasourceLocal);
 
         setNotesAvailable(mNotesDatasourceRemote, NOTES);
 
-        verify(mLoadNotesCallBack).onNotesLoaded(NOTES);
+        mNotesRepository.getNotes().subscribe(mTestSubscriber);
+
+        verify(mNotesDatasourceRemote).getNotes();
+
+        mTestSubscriber.assertValue(NOTES);
 
     }
 
     @Test
     public void getNotesWithBothDataSourceUnavailable_firesOnDataUnavailable(){
 
-        mNotesRepository.getNotes(mLoadNotesCallBack);
-
         setNotesUnavailable(mNotesDatasourceLocal);
 
         setNotesUnavailable(mNotesDatasourceRemote);
 
-        verify(mLoadNotesCallBack).onDataNotAvailable();
+        mNotesRepository.getNotes().subscribe(mTestSubscriber);
+
+        mTestSubscriber.assertNoValues();
+
+        mTestSubscriber.assertError(NoSuchElementException.class);
 
     }
 
@@ -374,42 +379,30 @@ public class NotesRepositoryTest {
 
         final String id = "111";
 
-        mNotesRepository.getNote(id, mGetNoteCallBack);
-
         setNoteUnavailable(mNotesDatasourceLocal, id);
 
         setNoteUnavailable(mNotesDatasourceRemote, id);
 
-        verify(mGetNoteCallBack).onDataNotAvailable();
+        TestSubscriber<Note> testSubscriber = new TestSubscriber<>();
+
+        mNotesRepository.getNote(id).subscribe(testSubscriber);
+
+        testSubscriber.assertNoValues();
 
     }
 
     @Test
     public void getNotes_refreshesLocalDataSource(){
 
+        setNotesAvailable(mNotesDatasourceRemote, NOTES);
+
         mNotesRepository.refreshNotes();
 
-        mNotesRepository.getNotes(mLoadNotesCallBack);
-
-        setNotesAvailable(mNotesDatasourceRemote, NOTES);
+        mNotesRepository.getNotes().subscribe(mTestSubscriber);
 
         verify(mNotesDatasourceLocal, times(NOTES.size())).saveNote(any(Note.class));
 
-    }
-
-    private void twoNotesLoadCallsToRepository(NotesDatasource.LoadNotesCallBack loadNotesCallBack){
-
-        mNotesRepository.getNotes(loadNotesCallBack);
-
-        verify(mNotesDatasourceLocal).getNotes(mNotesCallBackArgumentCaptor.capture());
-
-        mNotesCallBackArgumentCaptor.getValue().onDataNotAvailable();
-
-        verify(mNotesDatasourceRemote).getNotes(mNotesCallBackArgumentCaptor.capture());
-
-        mNotesCallBackArgumentCaptor.getValue().onNotesLoaded(NOTES);
-
-        mNotesRepository.getNotes(loadNotesCallBack);
+        mTestSubscriber.assertValue(NOTES);
 
     }
 

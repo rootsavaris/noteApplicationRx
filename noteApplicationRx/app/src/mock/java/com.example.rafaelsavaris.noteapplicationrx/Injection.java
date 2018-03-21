@@ -6,7 +6,6 @@ import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesRepository;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.local.NoteDatabase;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.local.NotesLocalDataSource;
 import com.example.rafaelsavaris.noteapplicationrx.data.source.remote.MockRemoteDataSource;
-import com.example.rafaelsavaris.noteapplicationrx.utils.AppExecutors;
 
 
 /**

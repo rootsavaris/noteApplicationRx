@@ -6,8 +6,6 @@ import android.support.test.filters.LargeTest;
 import android.support.test.runner.AndroidJUnit4;
 
 import com.example.rafaelsavaris.noteapplicationrx.data.model.Note;
-import com.example.rafaelsavaris.noteapplicationrx.data.source.NotesDatasource;
-import com.example.rafaelsavaris.noteapplicationrx.utils.SingleExecutor;
 
 import org.junit.After;
 import org.junit.Before;
@@ -16,14 +14,16 @@ import org.junit.runner.RunWith;
 
 import java.util.List;
 
+import io.reactivex.subscribers.TestSubscriber;
+
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertThat;
-import static org.mockito.Matchers.anyList;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 
@@ -60,7 +60,7 @@ public class NotesLocalDataSourceTest {
 
         NotesLocalDataSource.clearInstance();
 
-        mNotesLocalDataSource = NotesLocalDataSource.getInstance(new SingleExecutor(), noteDao);
+        mNotesLocalDataSource = NotesLocalDataSource.getInstance(noteDao);
 
     }
 
@@ -68,6 +68,7 @@ public class NotesLocalDataSourceTest {
     public void closeDb(){
         mNoteDatabase.close();
         NotesLocalDataSource.clearInstance();
+
     }
 
     @Test
@@ -82,18 +83,11 @@ public class NotesLocalDataSourceTest {
 
          mNotesLocalDataSource.saveNote(newNote);
 
-         mNotesLocalDataSource.getNote(newNote.getId(), new NotesDatasource.GetNoteCallBack() {
+        TestSubscriber<Note> testSubscriber = new TestSubscriber<>();
 
-             @Override
-             public void onNoteLoaded(Note note) {
-                assertThat(note.getId(), is(newNote.getId()));
-             }
+        mNotesLocalDataSource.getNote(newNote.getId()).subscribe(testSubscriber);
 
-             @Override
-             public void onDataNotAvailable() {
-                fail("error");
-             }
-         });
+        testSubscriber.assertValue(newNote);
 
     }
 
@@ -106,42 +100,38 @@ public class NotesLocalDataSourceTest {
 
         mNotesLocalDataSource.markNote(newNote);
 
-        mNotesLocalDataSource.getNote(newNote.getId(), new NotesDatasource.GetNoteCallBack() {
+        TestSubscriber<Note> testSubscriber = new TestSubscriber<>();
 
-            @Override
-            public void onNoteLoaded(Note note) {
-                assertThat(note.isMarked(), is(true));
-            }
+        mNotesLocalDataSource.getNote(newNote.getId()).subscribe(testSubscriber);
 
-            @Override
-            public void onDataNotAvailable() {
-                fail("error");
-            }
-        });
+        testSubscriber.assertValueCount(1);
+
+        Note note = testSubscriber.values().get(0);
+
+        assertThat(note.isMarked(), is(true));
 
     }
 
     @Test
     public void unMarkNote_retrieveNoteIsUnMarked(){
 
-        final Note newNote = new Note(TITLE, TEXT, true);
+        final Note newNote = new Note(TITLE, TEXT);
 
         mNotesLocalDataSource.saveNote(newNote);
 
         mNotesLocalDataSource.markNote(newNote);
 
-        mNotesLocalDataSource.getNote(newNote.getId(), new NotesDatasource.GetNoteCallBack() {
+        mNotesLocalDataSource.unMarkNote(newNote);
 
-            @Override
-            public void onNoteLoaded(Note note) {
-                assertThat(note.isMarked(), is(true));
-            }
+        TestSubscriber<Note> testSubscriber = new TestSubscriber<>();
 
-            @Override
-            public void onDataNotAvailable() {
-                fail("error");
-            }
-        });
+        mNotesLocalDataSource.getNote(newNote.getId()).subscribe(testSubscriber);
+
+        testSubscriber.assertValueCount(1);
+
+        Note note = testSubscriber.values().get(0);
+
+        assertThat(note.isMarked(), is(false));
 
     }
 
@@ -166,44 +156,13 @@ public class NotesLocalDataSourceTest {
 
         mNotesLocalDataSource.clearMarkedNotes();
 
-        mNotesLocalDataSource.getNote(note.getId(), new NotesDatasource.GetNoteCallBack() {
+        TestSubscriber<List<Note>> testSubscriber = new TestSubscriber<>();
 
-            @Override
-            public void onNoteLoaded(Note note) {
-                fail("error");
-            }
+        mNotesLocalDataSource.getNotes().subscribe(testSubscriber);
 
-            @Override
-            public void onDataNotAvailable() {
-                assertTrue(true);
-            }
-        });
+        List<Note> notes = testSubscriber.values().get(0);
 
-        mNotesLocalDataSource.getNote(note2.getId(), new NotesDatasource.GetNoteCallBack() {
-
-            @Override
-            public void onNoteLoaded(Note note) {
-                fail("error");
-            }
-
-            @Override
-            public void onDataNotAvailable() {
-                assertTrue(true);
-            }
-        });
-
-        mNotesLocalDataSource.getNote(note3.getId(), new NotesDatasource.GetNoteCallBack() {
-
-            @Override
-            public void onNoteLoaded(Note note) {
-                assertTrue(true);
-            }
-
-            @Override
-            public void onDataNotAvailable() {
-                fail("error");
-            }
-        });
+        assertThat(notes, not(hasItems(note, note2)));
 
     }
 
@@ -214,15 +173,15 @@ public class NotesLocalDataSourceTest {
 
         mNotesLocalDataSource.saveNote(note);
 
-        NotesDatasource.LoadNotesCallBack callBack = mock(NotesDatasource.LoadNotesCallBack.class);
-
         mNotesLocalDataSource.deleteAllNotes();
 
-        mNotesLocalDataSource.getNotes(callBack);
+        TestSubscriber<List<Note>> testSubscriber = new TestSubscriber<>();
 
-        verify(callBack).onDataNotAvailable();
+        mNotesLocalDataSource.getNotes().subscribe(testSubscriber);
 
-        verify(callBack, never()).onNotesLoaded(anyList());
+        List<Note> notes = testSubscriber.values().get(0);
+
+        assertThat(note.isEmpty(), is(true));
 
     }
 
@@ -239,26 +198,25 @@ public class NotesLocalDataSourceTest {
 
         mNotesLocalDataSource.saveNote(note2);
 
-        mNotesLocalDataSource.getNotes(new NotesDatasource.LoadNotesCallBack() {
 
-            @Override
-            public void onNotesLoaded(List<Note> notes) {
+        TestSubscriber<List<Note>> testSubscriber = new TestSubscriber<>();
 
-                assertNotNull(notes);
+        mNotesLocalDataSource.getNotes().subscribe(testSubscriber);
 
-                assertTrue(notes.size() == 2);
+        List<Note> notes = testSubscriber.values().get(0);
 
-                assertThat(notes.get(0).getTitle(), is(TITLE));
+        assertThat(notes, hasItems(note, note2));
 
-                assertThat(notes.get(1).getTitle(), is(TITLE2));
+    }
 
-            }
+    @Test
+    public void getNote_whenNoteNotSaved(){
 
-            @Override
-            public void onDataNotAvailable() {
-                fail();
-            }
-        });
+        TestSubscriber<Note> testSubscriber = new TestSubscriber<>();
+
+        mNotesLocalDataSource.getNote("1").subscribe(testSubscriber);
+
+//        testSubscriber.assertValue(null);
 
     }
 
